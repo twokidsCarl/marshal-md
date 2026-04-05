@@ -435,16 +435,18 @@ module MarshalMd
       end
     end
 
-    def parse_time_with_usec(datetime, usec_str, zone)
+    def parse_time_with_usec(datetime, frac_str, zone)
       tz = zone
       if tz =~ /^([+-])(\d{2})(\d{2})$/
         tz = "#{$1}#{$2}:#{$3}"
       end
       t = Time.parse("#{datetime} #{zone}")
-      usec = usec_str.to_i
-      # Use Rational for exact usec precision
-      sec_with_usec = t.sec + Rational(usec, 1_000_000)
-      Time.new(t.year, t.month, t.day, t.hour, t.min, sec_with_usec, tz)
+      # Support both 6-digit usec and 9-digit nsec
+      digits = frac_str.length
+      frac = frac_str.to_i
+      divisor = 10**digits
+      sec_with_frac = t.sec + Rational(frac, divisor)
+      Time.new(t.year, t.month, t.day, t.hour, t.min, sec_with_frac, tz)
     end
 
     def build_regexp(source, flags_str)

@@ -565,8 +565,12 @@ module MarshalMd
       ivars = extra_ivars(obj)
       is_subclass = class_name != "Time"
 
-      # Use enough precision for usec round-trip
-      time_str = "#{obj.strftime('%Y-%m-%d %H:%M:%S')}.#{obj.usec.to_s.rjust(6, '0')} #{obj.strftime('%z')}"
+      # Use nanosecond precision for Ruby 3.1+ round-trip
+      if obj.respond_to?(:nsec)
+        time_str = "#{obj.strftime('%Y-%m-%d %H:%M:%S')}.#{obj.nsec.to_s.rjust(9, '0')} #{obj.strftime('%z')}"
+      else
+        time_str = "#{obj.strftime('%Y-%m-%d %H:%M:%S')}.#{obj.usec.to_s.rjust(6, '0')} #{obj.strftime('%z')}"
+      end
 
       if is_subclass || !ivars.empty?
         result = "#{prefix}#<#{class_name}> (#{class_name})\n"
