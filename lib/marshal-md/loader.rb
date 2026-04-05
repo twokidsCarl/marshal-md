@@ -100,6 +100,12 @@ module MarshalMd
         return $1.to_sym
       end
 
+      # Encoding
+      if text =~ /^(.+) \(Encoding\)$/
+        advance
+        return Encoding.find($1)
+      end
+
       # Complex
       if text =~ /^\((-?[\d.]+)\+(-?[\d.]+)i\) \(Complex\)$/
         advance
@@ -714,17 +720,25 @@ module MarshalMd
             ct = current_line.text
             if ct =~ /^\{.*\} \(Hash\)$/ || ct == "{} (Hash)"
               entries = parse_value(current_line.indent)
+              entries.each { |k, v| obj[k] = v } if obj.is_a?(Hash)
             elsif ct == "(Hash)"
               advance
-              entries = {}
-              parse_multiline_hash_into(entries, current_line ? current_line.indent - 1 : parent_indent + 2)
-            else
-              entries = {}
-            end
-            if obj.is_a?(Hash)
-              entries.each { |k, v| obj[k] = v }
+              # Parse directly into obj to preserve compare_by_identity
+              if obj.is_a?(Hash)
+                parse_multiline_hash_into(obj, current_line ? current_line.indent - 1 : parent_indent + 2)
+              else
+                entries = {}
+                parse_multiline_hash_into(entries, current_line ? current_line.indent - 1 : parent_indent + 2)
+              end
             end
           end
+          next
+        end
+
+        # __compare_by_identity__ for hashes
+        if text == "__compare_by_identity__: true"
+          obj.compare_by_identity if obj.is_a?(Hash)
+          advance
           next
         end
 

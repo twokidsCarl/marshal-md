@@ -444,4 +444,122 @@ class TestMarshalMd < Test::Unit::TestCase
     object = { foo: [42, "bar"] }
     assert_equal(object, MarshalMd.load(MarshalMd.dump(object), :freeze.to_proc))
   end
+
+  # --- Proc with shared references (honor post_proc value for link) ---
+  def test_proc_shared_ref_replacement
+    str = 'x'
+    obj = [str, str]
+    result = MarshalMd.load(MarshalMd.dump(obj), ->(v) { v == str ? v.upcase : v })
+    assert_equal(['X', 'X'], result)
+  end
+
+  # --- Hash#compare_by_identity ---
+  def test_hash_compared_by_identity
+    h = Hash.new
+    h.compare_by_identity
+    h["a" + "0"] = 1
+    h["a" + "0"] = 2
+    h2 = MarshalMd.load(MarshalMd.dump(h))
+    assert_predicate(h2, :compare_by_identity?)
+    a = h2.to_a
+    assert_equal([["a0", 1], ["a0", 2]], a.sort)
+    assert_not_same(a[1][0], a[0][0])
+  end
+
+  def test_hash_default_compared_by_identity
+    h = Hash.new(true)
+    h.compare_by_identity
+    h["a" + "0"] = 1
+    h["a" + "0"] = 2
+    h2 = MarshalMd.load(MarshalMd.dump(h))
+    assert_predicate(h2, :compare_by_identity?)
+    a = h2.to_a
+    assert_equal([["a0", 1], ["a0", 2]], a.sort)
+  end
+
+  # --- Encoding object round-trip ---
+  def test_encoding_object
+    o1 = [Encoding.find("EUC-JP")] + ["r2"] * 2
+    m = MarshalMd.dump(o1)
+    o2 = MarshalMd.load(m)
+    assert_equal(o1, o2)
+  end
+
+  # --- Recursive marshal_dump detection ---
+  class RecursiveMarshalDump
+    def marshal_dump
+      dup
+    end
+  end
+
+  def test_marshal_dump_recursion
+    e = assert_raise(RuntimeError) do
+      MarshalMd.dump(RecursiveMarshalDump.new)
+    end
+    assert_match(/same class instance/, e.message)
+  end
+
+  # --- Array modification during dump ---
+  class ArrayModifier
+    def initialize(ary)
+      @ary = ary
+    end
+    def _dump(s)
+      @ary.clear
+      "foo"
+    end
+    def self._load(s)
+      new([])
+    end
+  end
+
+  def test_modify_array_during_dump
+    a = []
+    o = ArrayModifier.new(a)
+    a << o << nil
+    assert_raise(RuntimeError) { MarshalMd.dump(a) }
+  end
+
+  # --- Ivar modification during dump ---
+  class IvarAdder
+    attr_accessor :bar, :baz
+
+    def initialize
+      self.bar = IvarAdderBar.new(self)
+    end
+
+    class IvarAdderBar
+      attr_accessor :foo
+
+      def initialize(foo)
+        self.foo = foo
+      end
+
+      def marshal_dump
+        if self.foo.baz
+          self.foo.remove_instance_variable(:@baz)
+        else
+          self.foo.baz = :problem
+        end
+        {foo: self.foo}
+      end
+
+      def marshal_load(data)
+        self.foo = data[:foo]
+      end
+    end
+  end
+
+  def test_marshal_dump_adding_instance_variable
+    obj = IvarAdder.new
+    e = assert_raise(RuntimeError) { MarshalMd.dump(obj) }
+    assert_match(/instance variable added/, e.message)
+  end
+
+  def test_marshal_dump_removing_instance_variable
+    obj = IvarAdder.new
+    obj.baz = :test
+    e = assert_raise(RuntimeError) { MarshalMd.dump(obj) }
+    assert_match(/instance variable removed/, e.message)
+  end
 end

@@ -40,15 +40,17 @@ module MarshalMd
   class << self
     private
 
+    # Apply proc to all deserialized objects, bottom-up.
+    # The proc return value replaces the original in parent containers.
+    # Uses an identity map so shared references get the same replacement.
     def apply_proc_recursive(obj, proc, visited = {}.compare_by_identity)
-      return obj if visited.key?(obj) rescue return obj
-
       begin
-        visited[obj] = true
+        return visited[obj] if visited.key?(obj)
       rescue TypeError
-        # Immediate values can't be hash keys in compare_by_identity
+        # Immediate values
       end
 
+      # Process children first (bottom-up)
       case obj
       when Array
         obj.each_with_index { |el, i| obj[i] = apply_proc_recursive(el, proc, visited) }
@@ -56,7 +58,15 @@ module MarshalMd
         obj.each { |k, v| obj[k] = apply_proc_recursive(v, proc, visited) }
       end
 
-      proc.call(obj)
+      result = proc.call(obj)
+
+      begin
+        visited[obj] = result
+      rescue TypeError
+        # Immediate values
+      end
+
+      result
     end
 
     def deep_freeze(obj, visited = {}.compare_by_identity)

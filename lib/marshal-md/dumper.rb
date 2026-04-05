@@ -18,6 +18,7 @@ module MarshalMd
       @scan_stack = {}   # object_id => true (cycle detection)
       @seen = {}         # object_id => true (multi-ref detection)
       @emitted = {}      # object_id => true (pass 2)
+      @marshal_dump_stack = {} # class => true (recursive marshal_dump detection)
     end
 
     def dump
@@ -157,11 +158,13 @@ module MarshalMd
       when Struct
         obj.each_pair { |_, v| scan(v) }
         scan_ivars(obj)
-      when Class, Module
+      when Class, Module, Encoding
         # leaf
       else
         if obj.respond_to?(:marshal_dump)
-          scan(obj.marshal_dump)
+          # Don't call marshal_dump during scan — it may have side effects.
+          # Just scan instance variables to detect shared/circular refs.
+          scan_ivars(obj)
         elsif obj.respond_to?(:_dump)
           # _dump returns a string
         else
@@ -240,6 +243,8 @@ module MarshalMd
         "#{prefix}#{obj.numerator}/#{obj.denominator} (Rational)\n"
       when Symbol
         "#{prefix}:#{obj} (Symbol)\n"
+      when Encoding
+        "#{prefix}#{obj.name} (Encoding)\n"
       when Class
         "#{prefix}#{obj.name} (Class)\n"
       when Module
@@ -398,8 +403,12 @@ module MarshalMd
         items = obj.map { |el| inline_value(el) }.join(", ")
         "#{prefix}[#{items}] (Array)\n"
       else
+        len_before = obj.length
         result = "#{prefix}(Array)\n"
         obj.each { |el| result += emit(el, indent + 1) }
+        if obj.length != len_before
+          raise RuntimeError, "array modified during dump"
+        end
         result
       end
     end
@@ -412,8 +421,13 @@ module MarshalMd
       is_subclass = class_name != "Hash"
       has_default = !obj.default.nil?
 
-      if needs_wrapped_format?(obj) || has_default
+      has_identity = obj.respond_to?(:compare_by_identity?) && obj.compare_by_identity?
+
+      if needs_wrapped_format?(obj) || has_default || has_identity
         result = "#{prefix}#<#{class_name}> (#{class_name})\n"
+        if has_identity
+          result += "#{prefix}  __compare_by_identity__: true\n"
+        end
         if has_default
           result += emit_ivar(prefix + "  ", "__default__", obj.default, indent + 1)
         end
@@ -595,9 +609,15 @@ module MarshalMd
       prefix = "  " * indent
 
       if obj.respond_to?(:marshal_dump)
+        klass = obj.class
+        if @marshal_dump_stack[klass]
+          raise RuntimeError, "Marshal.dump reentered at marshal_dump for #{klass}: same class instance"
+        end
+        @marshal_dump_stack[klass] = true
         data = obj.marshal_dump
         result = "#{prefix}#<#{obj.class}> (#{obj.class}, marshal_dump)\n"
         result += emit(data, indent + 1)
+        @marshal_dump_stack.delete(klass)
         return result
       end
 
@@ -629,11 +649,23 @@ module MarshalMd
         return result
       end
 
+      ivars_before = obj.instance_variables.sort
       result = "#{prefix}#<#{obj.class}> (#{obj.class})\n"
       result += emit_extensions_str(obj, indent + 1)
-      obj.instance_variables.sort.each do |ivar|
+      ivars_before.each do |ivar|
         val = obj.instance_variable_get(ivar)
         result += emit_ivar(prefix + "  ", ivar, val, indent + 1)
+      end
+      ivars_after = obj.instance_variables.sort
+      if ivars_after != ivars_before
+        added = ivars_after - ivars_before
+        removed = ivars_before - ivars_after
+        if added.any?
+          raise RuntimeError, "instance variable added to #{obj.class} during dump"
+        end
+        if removed.any?
+          raise RuntimeError, "instance variable removed from #{obj.class} during dump"
+        end
       end
       result
     end
