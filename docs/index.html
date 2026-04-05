@@ -55,7 +55,7 @@
 <div class="hero">
   <h1><span>marshal</span>-md</h1>
   <p>Human-readable Ruby Marshal alternative. Serialize objects to Markdown with full round-trip fidelity.</p>
-  <div class="badge">52/52 CRuby official tests passed</div>
+  <div class="badge">101 tests + 108 RSpec examples, 100% passed</div>
 </div>
 
 <div class="install">
@@ -79,8 +79,13 @@
     <h2>Same API. Readable output.</h2>
     <pre><code>require "marshal-md"
 
-md = MarshalMd.dump(obj)    # Ruby object  ->  Markdown string
-obj = MarshalMd.load(md)    # Markdown string  ->  Ruby object
+md = MarshalMd.dump(obj)                  # Ruby object  ->  Markdown string
+obj = MarshalMd.load(md)                  # Markdown string  ->  Ruby object
+
+MarshalMd.dump(obj, io)                   # write to IO
+MarshalMd.dump(obj, 3)                    # depth limit
+MarshalMd.load(md, proc)                  # proc callback
+MarshalMd.load(md, freeze: true)          # freeze all objects
 
 # Drop-in replacement
 require "marshal-md/patch"
@@ -91,7 +96,7 @@ Marshal.load(md)   # auto-detects format</code></pre>
   <div class="features">
     <div class="feature">
       <h3>All Ruby types</h3>
-      <p>Integer, Float, String, Symbol, Array, Hash, Range, Regexp, Time, Struct, Complex, Rational, Exception, and any custom object.</p>
+      <p>Integer, Float, String, Symbol, Array, Hash, Range, Regexp, Time, Struct, Complex, Rational, Encoding, Exception, Class, Module, and any custom object.</p>
     </div>
     <div class="feature">
       <h3>Circular references</h3>
@@ -106,18 +111,24 @@ Marshal.load(md)   # auto-detects format</code></pre>
       <p>MyArray &lt; Array, MyTime &lt; Time, etc. Preserves class identity, instance variables, and module extensions.</p>
     </div>
     <div class="feature">
-      <h3>Diff-friendly</h3>
-      <p>Text output works with git diff, code review, and version control. No more opaque binary blobs.</p>
+      <h3>Full Marshal API</h3>
+      <p>Depth limit, IO/pipe, proc callback, freeze mode, compare_by_identity, safety checks for recursive dump and mutation detection.</p>
     </div>
     <div class="feature">
-      <h3>Marshal compatible</h3>
-      <p>Passes CRuby's official Marshal test suite. Same types supported, same errors raised.</p>
+      <h3>Diff-friendly</h3>
+      <p>Scalars have no type annotations. Text output works with git diff, code review, and version control.</p>
     </div>
   </div>
 
   <div class="section">
     <h2>Format examples</h2>
-    <pre><code># Nested objects
+    <pre><code># Scalars — no type annotations needed
+42
+"hello"
+:foo
+true
+
+# Nested objects
 #&lt;User&gt; (User)
   @name: "Alice"
   @scores: [85, 92, 78] (Array)
@@ -128,8 +139,8 @@ Marshal.load(md)   # auto-detects format</code></pre>
 
 # Circular reference
 &amp;obj_1 (Array)
-  1 (Integer)
-  2 (Integer)
+  1
+  2
   *obj_1 (ref)
 
 # Binary data

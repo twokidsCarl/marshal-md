@@ -30,23 +30,28 @@ require "marshal-md"
 # Dump
 md = MarshalMd.dump(obj)    # => Markdown string
 MarshalMd.dump(obj, io)     # write to IO
+MarshalMd.dump(obj, 3)      # with depth limit
 
 # Load
-obj = MarshalMd.load(md)    # from string
-obj = MarshalMd.load(io)    # from IO
+obj = MarshalMd.load(md)                    # from string
+obj = MarshalMd.load(io)                    # from IO
+obj = MarshalMd.load(md, proc)              # with proc callback
+obj = MarshalMd.load(md, freeze: true)      # freeze all objects
 ```
 
 ## Format
 
 ### Scalars
 
+No type annotations needed — type is inferred from syntax:
+
 ```
-42 (Integer)
-3.14 (Float)
-"hello world" (String)
-true (Boolean)
-nil (NilClass)
-:foo (Symbol)
+42
+3.14
+"hello world"
+true
+nil
+:foo
 ```
 
 ### Collections
@@ -56,7 +61,9 @@ nil (NilClass)
 {name: "Alice", age: 30} (Hash)
 1..10 (Range)
 /^\d+$/ (Regexp)
-2026-04-03 10:30:00.000000 +0800 (Time)
+2026-04-03 10:30:00.000000000 +0800 (Time)
+(1+2i) (Complex)
+1/3 (Rational)
 ```
 
 ### Objects
@@ -90,7 +97,7 @@ nil (NilClass)
 Circular:
 ```
 &obj_1 (Array)
-  1 (Integer)
+  1
   *obj_1 (ref)
 ```
 
@@ -119,17 +126,33 @@ Format detection: binary Marshal starts with `\x04\x08`. Everything else is trea
 
 ## Compatibility
 
-Passes the CRuby official `Marshal` test suite (52 tests, 464 assertions).
+Passes the CRuby official `Marshal` test suite (101 tests, 550 assertions) plus 108 RSpec examples.
 
 Supported types:
 - All primitives: Integer, Float, String, Symbol, true, false, nil
 - Collections: Array, Hash, Range, Regexp, Time, Struct
 - Numeric: Complex, Rational
+- References: Encoding, Class, Module
 - Custom objects: instance variables, `marshal_dump`/`marshal_load`, `_dump`/`_load`
-- Subclassed built-in types
+- Subclassed built-in types (MyArray < Array, MyTime < Time, etc.)
 - Module extensions (`extend`, `prepend`)
 - Shared and circular references
-- Class/Module references
+- Exception serialization (message + backtrace)
+- `Hash#compare_by_identity`
+- Hash with default values
+
+Marshal API features:
+- Depth limit: `dump(obj, limit)`
+- IO output: `dump(obj, io)`
+- Pipe IO: `dump(obj, w)` / `load(r)`
+- Proc callback: `load(data, proc)`
+- Freeze mode: `load(data, freeze: true)`
+
+Safety checks (same as Marshal):
+- Recursive `marshal_dump` detection
+- Array modification during dump detection
+- Instance variable modification during dump detection
+- TypeError for undumpable types (Proc, IO, Thread, Binding, Method, anonymous classes, singletons)
 
 Unsupported (same as `Marshal`):
 - Proc / Lambda
@@ -137,6 +160,7 @@ Unsupported (same as `Marshal`):
 - Thread / Fiber
 - Binding
 - Method / UnboundMethod
+- `ruby2_keywords` hash flag (CRuby C-internal, no public Ruby API)
 
 ## Requirements
 
