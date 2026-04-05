@@ -555,6 +555,11 @@ module MarshalMd
 
     # --- Struct ---
     def emit_struct(obj, indent)
+      # If struct has marshal_dump, use custom object path
+      if obj.respond_to?(:marshal_dump)
+        return emit_custom(obj, indent)
+      end
+
       prefix = "  " * indent
       class_name = obj.class.name
       ivars = extra_ivars(obj)
@@ -584,6 +589,7 @@ module MarshalMd
 
       if obj.respond_to?(:_dump)
         data = obj._dump(-1)
+        raise TypeError, "_dump() must return string" unless data.is_a?(String)
         result = "#{prefix}(#{obj.class}, _dump)\n"
         result += "#{prefix}  #{format_string_value(data)}\n"
         return result

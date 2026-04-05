@@ -320,7 +320,7 @@ module MarshalMd
         obj = klass.allocate
         @registry.store(anchor, obj)
         data = parse_value(indent + 1)
-        obj.marshal_load(data)
+        obj.send(:marshal_load, data)
         return obj
       end
 
@@ -541,7 +541,7 @@ module MarshalMd
       klass = resolve_class(klass_name)
       obj = klass.allocate
       data = parse_value(parent_indent + 1)
-      obj.marshal_load(data)
+      obj.send(:marshal_load, data)
       obj
     end
 
@@ -1002,6 +1002,16 @@ module MarshalMd
         elsif text =~ /^(.+?) =>$/
           key = parse_inline_value($1)
           advance
+          value = parse_value(line.indent + 1)
+          hash[key] = value
+        elsif text == "(entry)"
+          # Complex key: (entry) followed by key value, then =>, then value
+          advance
+          key = parse_value(line.indent + 1)
+          # Skip the => line
+          if !eof? && current_line.text == "=>"
+            advance
+          end
           value = parse_value(line.indent + 1)
           hash[key] = value
         else
