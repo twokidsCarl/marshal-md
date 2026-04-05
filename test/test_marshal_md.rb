@@ -393,4 +393,55 @@ class TestMarshalMd < Test::Unit::TestCase
     io.rewind
     assert_equal([1, 2, 3], MarshalMd.load(io))
   end
+
+  # --- Depth limit ---
+  def test_limit
+    assert_equal([[[]]], MarshalMd.load(MarshalMd.dump([[[]]], 3)))
+    assert_raise(ArgumentError) { MarshalMd.dump([[[]]], 2) }
+    # Strings are leaf values — should not count against depth
+    assert_nothing_raised(ArgumentError, '[ruby-core:24100]') { MarshalMd.dump("\u3042", 1) }
+  end
+
+  def test_limit_io
+    require "stringio"
+    io = StringIO.new
+    MarshalMd.dump([1, 2], io, 2)
+    io.rewind
+    assert_equal([1, 2], MarshalMd.load(io))
+  end
+
+  # --- Pipe IO ---
+  def test_pipe
+    o1 = C_dump.new("a" * 10000)
+    IO.pipe do |r, w|
+      th = Thread.new { MarshalMd.dump(o1, w); w.close }
+      o2 = MarshalMd.load(r)
+      th.join
+      assert_equal(o1.str, o2.str)
+    end
+  end
+
+  # --- Freeze mode ---
+  def test_freeze
+    source = ["foo", {}, 1..2]
+    objects = MarshalMd.load(MarshalMd.dump(source), freeze: true)
+    assert_equal(source, objects)
+    assert_predicate(objects, :frozen?)
+    objects.each do |obj|
+      assert_predicate(obj, :frozen?)
+    end
+  end
+
+  # --- Proc callback ---
+  def test_proc_callback
+    str = "x"
+    obj = [str, str]
+    result = MarshalMd.load(MarshalMd.dump(obj), ->(v) { v == str ? v.upcase : v })
+    assert_equal(["X", "X"], result)
+  end
+
+  def test_proc_freeze
+    object = { foo: [42, "bar"] }
+    assert_equal(object, MarshalMd.load(MarshalMd.dump(object), :freeze.to_proc))
+  end
 end

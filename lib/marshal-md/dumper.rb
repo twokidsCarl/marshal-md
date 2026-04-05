@@ -10,8 +10,9 @@ module MarshalMd
     # Built-in types that can have subclasses with special handling
     BUILTIN_TYPES = [Array, Hash, String, Regexp, Range, Time].freeze
 
-    def initialize(obj)
+    def initialize(obj, limit: -1)
       @root = obj
+      @limit = limit
       @registry = ObjectRegistry.new
       @needs_anchor = {} # object_id => true
       @scan_stack = {}   # object_id => true (cycle detection)
@@ -22,6 +23,7 @@ module MarshalMd
     def dump
       check_dumpable!(@root)
       scan(@root)
+      @depth_remaining = @limit
       emit(@root, 0).rstrip
     end
 
@@ -180,6 +182,11 @@ module MarshalMd
     def emit(obj, indent)
       check_dumpable!(obj)
 
+      # Depth limit check (Marshal compat: limit >= 0 means limited depth)
+      if @depth_remaining == 0 && @limit >= 0
+        raise ArgumentError, "exceed depth limit"
+      end
+
       if !immediate?(obj) && @needs_anchor[obj.object_id]
         if @emitted[obj.object_id]
           anchor = @registry.anchor_for(obj) || @registry.register(obj)
@@ -194,7 +201,14 @@ module MarshalMd
         @emitted[obj.object_id] = true
       end
 
-      emit_value(obj, indent)
+      if @limit >= 0
+        @depth_remaining -= 1
+        result = emit_value(obj, indent)
+        @depth_remaining += 1
+        result
+      else
+        emit_value(obj, indent)
+      end
     end
 
     def emit_anchored(obj, indent, anchor)
