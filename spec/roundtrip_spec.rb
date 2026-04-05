@@ -174,7 +174,7 @@ RSpec.describe "Round-trip tests" do
       io = StringIO.new
       MarshalMd.dump(42, io)
       io.rewind
-      expect(io.read).to eq("42 (Integer)")
+      expect(io.read).to eq("42")
     end
 
     it "loads from IO" do

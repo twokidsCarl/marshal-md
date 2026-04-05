@@ -29,7 +29,7 @@ RSpec.describe "Monkey-patch mode" do
 
   it "Marshal.dump produces Markdown" do
     md = Marshal.dump(42)
-    expect(md).to eq("42 (Integer)")
+    expect(md).to eq("42")
   end
 
   it "Marshal.load parses Markdown" do

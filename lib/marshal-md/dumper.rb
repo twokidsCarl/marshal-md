@@ -228,21 +228,21 @@ module MarshalMd
 
       case obj
       when NilClass
-        "#{prefix}nil (NilClass)\n"
+        "#{prefix}nil\n"
       when TrueClass
-        "#{prefix}true (Boolean)\n"
+        "#{prefix}true\n"
       when FalseClass
-        "#{prefix}false (Boolean)\n"
+        "#{prefix}false\n"
       when Integer
-        "#{prefix}#{obj} (Integer)\n"
+        "#{prefix}#{obj}\n"
       when Float
-        "#{prefix}#{format_float(obj)} (Float)\n"
+        "#{prefix}#{format_float(obj)}\n"
       when Complex
         "#{prefix}(#{obj.real}+#{obj.imaginary}i) (Complex)\n"
       when Rational
         "#{prefix}#{obj.numerator}/#{obj.denominator} (Rational)\n"
       when Symbol
-        "#{prefix}:#{obj} (Symbol)\n"
+        "#{prefix}:#{obj}\n"
       when Encoding
         "#{prefix}#{obj.name} (Encoding)\n"
       when Class
@@ -296,7 +296,7 @@ module MarshalMd
           "base64:#{encoded} (String, #{str.encoding}, #{str.bytesize} bytes)"
         end
       else
-        bare ? "\"#{escape_string(str)}\"" : "\"#{escape_string(str)}\" (String)"
+        "\"#{escape_string(str)}\""
       end
     end
 

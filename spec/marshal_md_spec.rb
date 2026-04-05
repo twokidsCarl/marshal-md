@@ -6,31 +6,31 @@ RSpec.describe MarshalMd do
   describe ".dump and .load basic types" do
     it "round-trips nil" do
       md = MarshalMd.dump(nil)
-      expect(md).to eq("nil (NilClass)")
+      expect(md).to eq("nil")
       expect(MarshalMd.load(md)).to be_nil
     end
 
     it "round-trips true" do
       md = MarshalMd.dump(true)
-      expect(md).to eq("true (Boolean)")
+      expect(md).to eq("true")
       expect(MarshalMd.load(md)).to eq(true)
     end
 
     it "round-trips false" do
       md = MarshalMd.dump(false)
-      expect(md).to eq("false (Boolean)")
+      expect(md).to eq("false")
       expect(MarshalMd.load(md)).to eq(false)
     end
 
     it "round-trips positive integer" do
       md = MarshalMd.dump(42)
-      expect(md).to eq("42 (Integer)")
+      expect(md).to eq("42")
       expect(MarshalMd.load(md)).to eq(42)
     end
 
     it "round-trips negative integer" do
       md = MarshalMd.dump(-100)
-      expect(md).to eq("-100 (Integer)")
+      expect(md).to eq("-100")
       expect(MarshalMd.load(md)).to eq(-100)
     end
 
@@ -45,37 +45,37 @@ RSpec.describe MarshalMd do
 
     it "round-trips float" do
       md = MarshalMd.dump(3.14)
-      expect(md).to eq("3.14 (Float)")
+      expect(md).to eq("3.14")
       expect(MarshalMd.load(md)).to eq(3.14)
     end
 
     it "round-trips Float::INFINITY" do
       md = MarshalMd.dump(Float::INFINITY)
-      expect(md).to eq("Infinity (Float)")
+      expect(md).to eq("Infinity")
       expect(MarshalMd.load(md)).to eq(Float::INFINITY)
     end
 
     it "round-trips -Float::INFINITY" do
       md = MarshalMd.dump(-Float::INFINITY)
-      expect(md).to eq("-Infinity (Float)")
+      expect(md).to eq("-Infinity")
       expect(MarshalMd.load(md)).to eq(-Float::INFINITY)
     end
 
     it "round-trips Float::NAN" do
       md = MarshalMd.dump(Float::NAN)
-      expect(md).to eq("NaN (Float)")
+      expect(md).to eq("NaN")
       expect(MarshalMd.load(md).nan?).to be true
     end
 
     it "round-trips symbol" do
       md = MarshalMd.dump(:foo)
-      expect(md).to eq(":foo (Symbol)")
+      expect(md).to eq(":foo")
       expect(MarshalMd.load(md)).to eq(:foo)
     end
 
     it "round-trips simple string" do
       md = MarshalMd.dump("hello world")
-      expect(md).to eq('"hello world" (String)')
+      expect(md).to eq('"hello world"')
       expect(MarshalMd.load(md)).to eq("hello world")
     end
 

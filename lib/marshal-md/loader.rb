@@ -66,35 +66,35 @@ module MarshalMd
     end
 
     def parse_unanchored(text, line)
-      # nil
-      if text == "nil (NilClass)"
+      # nil (bare or annotated)
+      if text == "nil" || text == "nil (NilClass)"
         advance
         return nil
       end
 
-      # Boolean
-      if text == "true (Boolean)"
+      # Boolean (bare or annotated)
+      if text == "true" || text == "true (Boolean)"
         advance
         return true
       end
-      if text == "false (Boolean)"
+      if text == "false" || text == "false (Boolean)"
         advance
         return false
       end
 
-      # Integer
+      # Integer (bare or annotated)
       if text =~ /^(-?\d+) \(Integer\)$/
         advance
         return $1.to_i
       end
 
-      # Float
+      # Float (bare or annotated)
       if text =~ /^(-?(?:Infinity|NaN|0\.0|[\d.]+(?:e[+-]?\d+)?)) \(Float\)$/i
         advance
         return parse_float_value($1)
       end
 
-      # Symbol
+      # Symbol (bare or annotated)
       if text =~ /^:(.+) \(Symbol\)$/
         advance
         return $1.to_sym
@@ -244,6 +244,45 @@ module MarshalMd
         klass_name = $2
         advance
         return parse_custom_object(klass_name, line.indent)
+      end
+
+      # Bare scalars fallback (no type annotation)
+      # Symbol
+      if text =~ /^:(.+)$/
+        advance
+        return $1.to_sym
+      end
+
+      # Bare string
+      if text =~ /^"(.*)"$/
+        advance
+        return unescape($1)
+      end
+
+      # Float special
+      if text == "Infinity"
+        advance
+        return Float::INFINITY
+      end
+      if text == "-Infinity"
+        advance
+        return -Float::INFINITY
+      end
+      if text == "NaN"
+        advance
+        return Float::NAN
+      end
+
+      # Bare float
+      if text =~ /^-?\d+\.\d+$/ || text =~ /^-?\d+(\.\d+)?e[+-]?\d+$/i
+        advance
+        return text.to_f
+      end
+
+      # Bare integer
+      if text =~ /^-?\d+$/
+        advance
+        return text.to_i
       end
 
       raise "Unexpected format at line #{line.lineno}: #{text}"
@@ -420,7 +459,15 @@ module MarshalMd
         return val
       end
 
-      raise "Unexpected anchored format: &#{anchor} #{rest}"
+      # Bare scalars fallback
+      begin
+        advance
+        val = parse_inline_value(rest)
+        @registry.store(anchor, val)
+        return val
+      rescue
+        raise "Unexpected anchored format: &#{anchor} #{rest}"
+      end
     end
 
     # --- Type-specific parsers ---
